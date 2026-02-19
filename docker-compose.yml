@@ -1,0 +1,11 @@
+services:
+  app:
+    build:
+      context: .
+      args:
+        VITE_SUPABASE_PROJECT_ID: ${VITE_SUPABASE_PROJECT_ID}
+        VITE_SUPABASE_PUBLISHABLE_KEY: ${VITE_SUPABASE_PUBLISHABLE_KEY}
+        VITE_SUPABASE_URL: ${VITE_SUPABASE_URL}
+    ports:
+      - "8080:80"
+    restart: unless-stopped
