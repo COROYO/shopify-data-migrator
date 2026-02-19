@@ -1,5 +1,5 @@
 services:
-  shrymp-migrator:
+  app:
     build:
       context: .
       args:
