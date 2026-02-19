@@ -1,5 +1,5 @@
 services:
-  app:
+  shrymp-migrator:
     build:
       context: .
       args:
@@ -8,4 +8,5 @@ services:
         VITE_SUPABASE_URL: ${VITE_SUPABASE_URL}
     ports:
       - "8080:80"
+    container_name: shrymp-migrator
     restart: unless-stopped
