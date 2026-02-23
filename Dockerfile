@@ -1,19 +1,13 @@
-FROM oven/bun:1 AS build
+FROM node:20-alpine AS build
 
 WORKDIR /app
 
-COPY package.json bun.lockb ./
-RUN bun install
+COPY package.json package-lock.json ./
+RUN npm ci
 
 COPY . .
 
-ARG VITE_SUPABASE_PROJECT_ID
-ARG VITE_SUPABASE_PUBLISHABLE_KEY
-ARG VITE_SUPABASE_URL
-
-
-
-RUN bun run build
+RUN npm run build
 
 FROM nginx:alpine
 
