@@ -3,7 +3,7 @@ import { Github } from "lucide-react";
 export function Footer() {
   return (
     <footer className="border-t bg-card py-4">
-      <div className="container flex items-center justify-center gap-6 text-sm text-muted-foreground">
+      <div className="container flex flex-col md:flex-row items-center justify-center gap-2 md:gap-6 text-sm text-muted-foreground">
         <a
           href="https://coroyo.de/datenschutz"
           target="_blank"
@@ -12,7 +12,7 @@ export function Footer() {
         >
           Datenschutz
         </a>
-        <span className="text-border">|</span>
+        <span className="hidden md:inline text-border">|</span>
         <a
           href="https://shrymp-commerce.com/impressum/"
           target="_blank"
@@ -21,7 +21,7 @@ export function Footer() {
         >
           Impressum
         </a>
-        <span className="text-border">|</span>
+        <span className="hidden md:inline text-border">|</span>
         <a
           href="https://shrymp-commerce.com"
           target="_blank"
@@ -30,7 +30,7 @@ export function Footer() {
         >
           Shrymp Commerce 🦐
         </a>
-        <span className="text-border">|</span>
+        <span className="hidden md:inline text-border">|</span>
         <a
           href="https://github.com/COROYO/shopify-data-migrator"
           target="_blank"
@@ -40,7 +40,7 @@ export function Footer() {
         >
           <Github className="h-4 w-4" />
         </a>
-        <span className="text-border">|</span>
+        <span className="hidden md:inline text-border">|</span>
         <span className="text-muted-foreground">
           v{import.meta.env.VITE_APP_VERSION}
         </span>
