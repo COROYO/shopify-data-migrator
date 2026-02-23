@@ -41,8 +41,8 @@ export default function Setup() {
             es einfach. Das Tool ist nichts für dich.
           </p>
           <p className=" text-sm mt-2 text-muted-foreground">
-            Dieses Tool speichert deine Access Tokens nicht. Es speichert nicht
-            mal die Store URL oder sonst irgendwas. <br />
+            Shop-URLs und Access Tokens werden nur lokal im Browser
+            (localStorage) gespeichert – nie auf unseren Servern. <br />
             Wir haben hier nichtmal ne Datenbank hinterlegt. <br />
             Wir haben kein Interesse an deinen Daten. Das Tool dient
             Entwicklerinnen und Entwicklern und erleichtert ihnen die Arbeit.

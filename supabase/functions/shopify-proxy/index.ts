@@ -1,5 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
+const GQL_API = "2024-10";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -12,12 +14,22 @@ serve(async (req) => {
   }
 
   try {
-    const { shopUrl, accessToken, endpoint, method = "GET", body, graphql } = await req.json();
+    const {
+      shopUrl,
+      accessToken,
+      endpoint,
+      method = "GET",
+      body,
+      graphql,
+    } = await req.json();
 
     if (!shopUrl || !accessToken) {
       return new Response(
         JSON.stringify({ error: "shopUrl and accessToken are required" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
       );
     }
 
@@ -25,7 +37,7 @@ serve(async (req) => {
 
     // GraphQL mode
     if (graphql) {
-      const url = `https://${cleanUrl}/admin/api/2024-01/graphql.json`;
+      const url = `https://${cleanUrl}/admin/api/${GQL_API}/graphql.json`;
       const response = await fetch(url, {
         method: "POST",
         headers: {
@@ -38,8 +50,14 @@ serve(async (req) => {
       if (!response.ok) {
         const errorText = await response.text();
         return new Response(
-          JSON.stringify({ error: `Shopify GraphQL error: ${response.status}`, details: errorText }),
-          { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          JSON.stringify({
+            error: `Shopify GraphQL error: ${response.status}`,
+            details: errorText,
+          }),
+          {
+            status: response.status,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
         );
       }
 
@@ -53,7 +71,10 @@ serve(async (req) => {
     if (!endpoint) {
       return new Response(
         JSON.stringify({ error: "endpoint is required for REST calls" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
       );
     }
 
@@ -70,8 +91,14 @@ serve(async (req) => {
     if (!response.ok) {
       const errorText = await response.text();
       return new Response(
-        JSON.stringify({ error: `Shopify API error: ${response.status}`, details: errorText }),
-        { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({
+          error: `Shopify API error: ${response.status}`,
+          details: errorText,
+        }),
+        {
+          status: response.status,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
       );
     }
 
@@ -80,9 +107,9 @@ serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
-    return new Response(
-      JSON.stringify({ error: err.message }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({ error: err.message }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 });

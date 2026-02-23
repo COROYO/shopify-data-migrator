@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 
 export interface ShopConnection {
   url: string;
@@ -8,7 +9,12 @@ export interface ShopConnection {
 }
 
 export type ConflictMode = "overwrite" | "skip" | "ask";
-export type DataType = "products" | "collections" | "metaobjects" | "blogs" | "pages";
+export type DataType =
+  | "products"
+  | "collections"
+  | "metaobjects"
+  | "blogs"
+  | "pages";
 
 export const METAFIELD_OWNER_TYPES = [
   { key: "PRODUCT", label: "Produkte" },
@@ -45,31 +51,92 @@ export interface MigrationState {
 
 const initialShop: ShopConnection = { url: "", token: "", connected: false };
 
-export const useMigrationStore = create<MigrationState>((set) => ({
-  sourceShop: { ...initialShop },
-  targetShop: { ...initialShop },
-  selectedDataTypes: [],
-  selectedItems: { products: [], collections: [], metaobjects: [], blogs: [], pages: [] },
-  metafieldSelections: {},
-  conflictMode: "skip",
-  dryRun: false,
-  setSourceShop: (shop) => set((s) => ({ sourceShop: { ...s.sourceShop, ...shop } })),
-  setTargetShop: (shop) => set((s) => ({ targetShop: { ...s.targetShop, ...shop } })),
-  setSelectedDataTypes: (types) => set({ selectedDataTypes: types }),
-  setSelectedItems: (type, ids) =>
-    set((s) => ({ selectedItems: { ...s.selectedItems, [type]: ids } })),
-  setMetafieldSelections: (ownerType, keys) =>
-    set((s) => ({ metafieldSelections: { ...s.metafieldSelections, [ownerType]: keys } })),
-  setConflictMode: (mode) => set({ conflictMode: mode }),
-  setDryRun: (dryRun) => set({ dryRun }),
-  reset: () =>
-    set({
+const STORAGE_KEY = "migration-shop-credentials";
+
+export const useMigrationStore = create<MigrationState>()(
+  persist(
+    (set) => ({
       sourceShop: { ...initialShop },
       targetShop: { ...initialShop },
       selectedDataTypes: [],
-      selectedItems: { products: [], collections: [], metaobjects: [], blogs: [], pages: [] },
+      selectedItems: {
+        products: [],
+        collections: [],
+        metaobjects: [],
+        blogs: [],
+        pages: [],
+      },
       metafieldSelections: {},
       conflictMode: "skip",
       dryRun: false,
+      setSourceShop: (shop) =>
+        set((s) => ({ sourceShop: { ...s.sourceShop, ...shop } })),
+      setTargetShop: (shop) =>
+        set((s) => ({ targetShop: { ...s.targetShop, ...shop } })),
+      setSelectedDataTypes: (types) => set({ selectedDataTypes: types }),
+      setSelectedItems: (type, ids) =>
+        set((s) => ({ selectedItems: { ...s.selectedItems, [type]: ids } })),
+      setMetafieldSelections: (ownerType, keys) =>
+        set((s) => ({
+          metafieldSelections: { ...s.metafieldSelections, [ownerType]: keys },
+        })),
+      setConflictMode: (mode) => set({ conflictMode: mode }),
+      setDryRun: (dryRun) => set({ dryRun }),
+      reset: () =>
+        set({
+          sourceShop: { ...initialShop },
+          targetShop: { ...initialShop },
+          selectedDataTypes: [],
+          selectedItems: {
+            products: [],
+            collections: [],
+            metaobjects: [],
+            blogs: [],
+            pages: [],
+          },
+          metafieldSelections: {},
+          conflictMode: "skip",
+          dryRun: false,
+        }),
     }),
-}));
+    {
+      name: STORAGE_KEY,
+      partialize: (state) => ({
+        sourceShop: {
+          url: state.sourceShop.url,
+          token: state.sourceShop.token,
+        },
+        targetShop: {
+          url: state.targetShop.url,
+          token: state.targetShop.token,
+        },
+      }),
+      merge: (persisted, current) => {
+        const p = persisted as
+          | {
+              sourceShop?: { url?: string; token?: string };
+              targetShop?: { url?: string; token?: string };
+            }
+          | undefined;
+        if (!p) return current;
+        return {
+          ...current,
+          sourceShop: {
+            ...current.sourceShop,
+            url: p.sourceShop?.url ?? current.sourceShop.url,
+            token: p.sourceShop?.token ?? current.sourceShop.token,
+            connected: false,
+            name: undefined,
+          },
+          targetShop: {
+            ...current.targetShop,
+            url: p.targetShop?.url ?? current.targetShop.url,
+            token: p.targetShop?.token ?? current.targetShop.token,
+            connected: false,
+            name: undefined,
+          },
+        };
+      },
+    },
+  ),
+);

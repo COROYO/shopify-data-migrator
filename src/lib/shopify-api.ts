@@ -22,6 +22,35 @@ export async function shopifyProxy(req: ShopifyProxyRequest) {
   return data;
 }
 
+const numId = (gid: string) => (gid || "").split("/").pop() ?? "";
+
+async function gqlPaginateNodes(
+  shopUrl: string,
+  accessToken: string,
+  buildQuery: (cursor: string | null) => string,
+  extractConnection: (data: any) => {
+    nodes: any[];
+    pageInfo: { hasNextPage: boolean; endCursor?: string | null };
+  },
+): Promise<any[]> {
+  const all: any[] = [];
+  let cursor: string | null = null;
+  let hasNext = true;
+  while (hasNext) {
+    const data = await shopifyProxy({
+      shopUrl,
+      accessToken,
+      graphql: { query: buildQuery(cursor) },
+    });
+    const conn = extractConnection(data);
+    const nodes = conn?.nodes ?? [];
+    all.push(...nodes);
+    hasNext = conn?.pageInfo?.hasNextPage ?? false;
+    cursor = conn?.pageInfo?.endCursor ?? null;
+  }
+  return all;
+}
+
 export async function testConnection(shopUrl: string, accessToken: string) {
   const data = await shopifyProxy({
     shopUrl,
@@ -32,99 +61,154 @@ export async function testConnection(shopUrl: string, accessToken: string) {
 }
 
 export async function fetchProducts(shopUrl: string, accessToken: string) {
-  const data = await shopifyProxy({
+  const nodes = await gqlPaginateNodes(
     shopUrl,
     accessToken,
-    endpoint: "/admin/api/2024-01/products.json?limit=250",
-  });
-  return data?.products ?? [];
+    (cursor) =>
+      `{ products(first: 250${cursor ? `, after: "${cursor}"` : ""}) { nodes { id title handle } pageInfo { hasNextPage endCursor } } }`,
+    (d) => d?.data?.products,
+  );
+  return nodes.map((n: any) => ({
+    id: numId(n.id),
+    title: n.title,
+    handle: n.handle,
+  }));
 }
 
 export async function fetchCollections(shopUrl: string, accessToken: string) {
-  const [custom, smart] = await Promise.all([
-    shopifyProxy({ shopUrl, accessToken, endpoint: "/admin/api/2024-01/custom_collections.json?limit=250" }),
-    shopifyProxy({ shopUrl, accessToken, endpoint: "/admin/api/2024-01/smart_collections.json?limit=250" }),
-  ]);
-  return [
-    ...(custom?.custom_collections ?? []).map((c: any) => ({ ...c, type: "custom" })),
-    ...(smart?.smart_collections ?? []).map((c: any) => ({ ...c, type: "smart" })),
-  ];
+  const nodes = await gqlPaginateNodes(
+    shopUrl,
+    accessToken,
+    (cursor) =>
+      `{ collections(first: 250${cursor ? `, after: "${cursor}"` : ""}) { nodes { id title handle ruleSet { rules { column } } } pageInfo { hasNextPage endCursor } } }`,
+    (d) => d?.data?.collections,
+  );
+  return nodes.map((n: any) => ({
+    id: numId(n.id),
+    title: n.title,
+    handle: n.handle,
+    type: n.ruleSet?.rules?.length ? "smart" : "custom",
+  }));
 }
 
 export async function fetchPages(shopUrl: string, accessToken: string) {
-  const data = await shopifyProxy({
+  const nodes = await gqlPaginateNodes(
     shopUrl,
     accessToken,
-    endpoint: "/admin/api/2024-01/pages.json?limit=250",
-  });
-  return data?.pages ?? [];
+    (cursor) =>
+      `{ pages(first: 250${cursor ? `, after: "${cursor}"` : ""}) { nodes { id title handle } pageInfo { hasNextPage endCursor } } }`,
+    (d) => d?.data?.pages,
+  );
+  return nodes.map((n: any) => ({
+    id: numId(n.id),
+    title: n.title,
+    handle: n.handle,
+  }));
 }
 
 export async function fetchBlogs(shopUrl: string, accessToken: string) {
-  const blogsData = await shopifyProxy({
+  const blogNodes = await gqlPaginateNodes(
     shopUrl,
     accessToken,
-    endpoint: "/admin/api/2024-01/blogs.json",
-  });
-  const blogs = blogsData?.blogs ?? [];
+    (cursor) =>
+      `{ blogs(first: 50${cursor ? `, after: "${cursor}"` : ""}) { nodes { id title handle } pageInfo { hasNextPage endCursor } } }`,
+    (d) => d?.data?.blogs,
+  );
   const result: any[] = [];
-  for (const blog of blogs) {
-    const articlesData = await shopifyProxy({
+  for (const blog of blogNodes) {
+    const blogGid = blog.id;
+    const articleNodes = await gqlPaginateNodes(
       shopUrl,
       accessToken,
-      endpoint: `/admin/api/2024-01/blogs/${blog.id}/articles.json?limit=250`,
+      (cursor) =>
+        `{ blog(id: "${blogGid}") { articles(first: 250${cursor ? `, after: "${cursor}"` : ""}) { nodes { id title handle } pageInfo { hasNextPage endCursor } } } }`,
+      (d) => d?.data?.blog?.articles,
+    );
+    result.push({
+      id: numId(blog.id),
+      title: blog.title,
+      handle: blog.handle,
+      articles: articleNodes.map((a: any) => ({
+        id: numId(a.id),
+        title: a.title,
+        handle: a.handle,
+      })),
     });
-    result.push({ ...blog, articles: articlesData?.articles ?? [] });
   }
   return result;
 }
 
-// Fetch metaobject definitions via GraphQL
+// Fetch metaobject definitions via GraphQL with cursor pagination
 export async function fetchMetaobjects(shopUrl: string, accessToken: string) {
-  const query = `{
-    metaobjectDefinitions(first: 50) {
-      edges {
-        node {
-          id
-          name
-          type
-          fieldDefinitions {
-            key
+  const definitions: any[] = [];
+  let cursor: string | null = null;
+  let hasNext = true;
+  while (hasNext) {
+    const query = `{
+      metaobjectDefinitions(first: 50${cursor ? `, after: "${cursor}"` : ""}) {
+        edges {
+          node {
+            id
             name
-            type { name }
-            required
+            type
+            fieldDefinitions {
+              key
+              name
+              type { name }
+              required
+            }
           }
+          cursor
         }
+        pageInfo { hasNextPage }
       }
-    }
-  }`;
+    }`;
+    const data = await shopifyProxy({
+      shopUrl,
+      accessToken,
+      graphql: { query },
+    });
+    const edges = data?.data?.metaobjectDefinitions?.edges ?? [];
+    definitions.push(...edges.map((e: any) => e.node));
+    hasNext = data?.data?.metaobjectDefinitions?.pageInfo?.hasNextPage ?? false;
+    cursor = edges.length > 0 ? edges[edges.length - 1].cursor : null;
+  }
 
-  const data = await shopifyProxy({ shopUrl, accessToken, graphql: { query } });
-
-  const definitions = data?.data?.metaobjectDefinitions?.edges?.map((e: any) => e.node) ?? [];
-  
   if (definitions.length === 0) return [];
 
-  // Fetch entry counts
   const result: any[] = [];
   for (const def of definitions) {
-    let entryInfo = "0 Einträge";
+    let count = 0;
     try {
-      const countQuery = `{
-        metaobjects(type: "${def.type}", first: 250) {
-          edges { node { id } }
-        }
-      }`;
-      const countData = await shopifyProxy({ shopUrl, accessToken, graphql: { query: countQuery } });
-      const count = countData?.data?.metaobjects?.edges?.length ?? 0;
-      entryInfo = `${count} Einträge`;
-    } catch { /* ignore */ }
+      let entryCursor: string | null = null;
+      let entryHasNext = true;
+      while (entryHasNext) {
+        const countQuery = `{
+          metaobjects(type: "${def.type}", first: 250${entryCursor ? `, after: "${entryCursor}"` : ""}) {
+            edges { node { id } cursor }
+            pageInfo { hasNextPage }
+          }
+        }`;
+        const countData = await shopifyProxy({
+          shopUrl,
+          accessToken,
+          graphql: { query: countQuery },
+        });
+        const edges = countData?.data?.metaobjects?.edges ?? [];
+        count += edges.length;
+        entryHasNext =
+          countData?.data?.metaobjects?.pageInfo?.hasNextPage ?? false;
+        entryCursor = edges.length > 0 ? edges[edges.length - 1].cursor : null;
+      }
+    } catch {
+      /* ignore */
+    }
 
     result.push({
       id: def.id,
       title: def.name,
       handle: def.type,
-      name: `${def.name} (${entryInfo})`,
+      name: `${def.name} (${count} Einträge)`,
       type: def.type,
       fieldDefinitions: def.fieldDefinitions,
     });
@@ -132,35 +216,53 @@ export async function fetchMetaobjects(shopUrl: string, accessToken: string) {
   return result;
 }
 
-// Fetch metafield definitions for a specific owner type via GraphQL
-export async function fetchMetafieldDefinitions(shopUrl: string, accessToken: string, ownerType: string) {
-  const query = `{
-    metafieldDefinitions(ownerType: ${ownerType}, first: 100) {
-      edges {
-        node {
-          id
-          name
-          namespace
-          key
-          type { name }
-          description
-          ownerType
+// Fetch metafield definitions for a specific owner type via GraphQL with cursor pagination
+export async function fetchMetafieldDefinitions(
+  shopUrl: string,
+  accessToken: string,
+  ownerType: string,
+) {
+  const allNodes: any[] = [];
+  let cursor: string | null = null;
+  let hasNext = true;
+  while (hasNext) {
+    const query = `{
+      metafieldDefinitions(ownerType: ${ownerType}, first: 100${cursor ? `, after: "${cursor}"` : ""}) {
+        edges {
+          node {
+            id
+            name
+            namespace
+            key
+            type { name }
+            description
+            ownerType
+          }
+          cursor
         }
+        pageInfo { hasNextPage }
       }
-    }
-  }`;
+    }`;
+    const data = await shopifyProxy({
+      shopUrl,
+      accessToken,
+      graphql: { query },
+    });
+    const edges = data?.data?.metafieldDefinitions?.edges ?? [];
+    allNodes.push(...edges.map((e: any) => e.node));
+    hasNext = data?.data?.metafieldDefinitions?.pageInfo?.hasNextPage ?? false;
+    cursor = edges.length > 0 ? edges[edges.length - 1].cursor : null;
+  }
 
-  const data = await shopifyProxy({ shopUrl, accessToken, graphql: { query } });
-  
-  return data?.data?.metafieldDefinitions?.edges?.map((e: any) => ({
-    id: `${e.node.namespace}.${e.node.key}`,
-    title: e.node.name,
-    name: e.node.name,
-    handle: `${e.node.namespace}.${e.node.key}`,
-    namespace: e.node.namespace,
-    key: e.node.key,
-    typeName: e.node.type?.name,
-    description: e.node.description,
-    ownerType: e.node.ownerType,
-  })) ?? [];
+  return allNodes.map((node: any) => ({
+    id: `${node.namespace}.${node.key}`,
+    title: node.name,
+    name: node.name,
+    handle: `${node.namespace}.${node.key}`,
+    namespace: node.namespace,
+    key: node.key,
+    typeName: node.type?.name,
+    description: node.description,
+    ownerType: node.ownerType,
+  }));
 }
