@@ -29,24 +29,165 @@
       name="twitter:description"
       content="Dieser Migrator kopiert Produkte, Blog Beiträge, Seiten, Metaobjekte und Metafelder von einem Shopify-Shop zum anderen. Ohne Schnickschnack."
     />
-    <!-- Google tag (gtag.js) -->
-    <script
-      async
-      src="https://www.googletagmanager.com/gtag/js?id=G-DSPJFKW0RY"
-    ></script>
+    <!-- Google tag (gtag.js) - loaded dynamically on consent -->
     <script>
       window.dataLayer = window.dataLayer || [];
       function gtag() {
         dataLayer.push(arguments);
       }
-      gtag("js", new Date());
 
-      gtag("config", "G-DSPJFKW0RY");
+      // Load Google Analytics dynamically if consent is granted
+      function loadGoogleAnalytics() {
+        const script = document.createElement("script");
+        script.async = true;
+        script.src = "https://www.googletagmanager.com/gtag/js?id=G-DSPJFKW0RY";
+        document.head.appendChild(script);
+
+        gtag("js", new Date());
+        gtag("config", "G-DSPJFKW0RY");
+      }
     </script>
   </head>
 
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+
+    <!-- Cookie Banner Styles -->
+    <style>
+      :root {
+        --sc-cookie-bg: #ffffff;
+        --sc-cookie-text: #333333;
+        --sc-cookie-btn-bg: #000000;
+        --sc-cookie-btn-text: #ffffff;
+        --sc-cookie-btn-deny-bg: #cccccc;
+      }
+      .sc-cookie-banner {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background-color: var(--sc-cookie-bg);
+        color: var(--sc-cookie-text);
+        padding: 20px;
+        box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 15px;
+        z-index: 9999;
+        font-family: "Inter", sans-serif;
+      }
+      .sc-cookie-banner.sc-hidden {
+        display: none;
+      }
+      .sc-cookie-text {
+        text-align: center;
+        font-size: 14px;
+        margin: 0;
+        line-height: 1.5;
+      }
+      .sc-cookie-link {
+        color: var(--sc-cookie-text);
+        text-decoration: underline;
+        font-weight: 600;
+      }
+      .sc-cookie-buttons {
+        display: flex;
+        gap: 10px;
+      }
+      .sc-cookie-btn {
+        border: none;
+        padding: 10px 20px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 600;
+        transition: opacity 0.2s ease;
+      }
+      .sc-cookie-btn:hover {
+        opacity: 0.8;
+      }
+      .sc-cookie-btn-accept {
+        background-color: var(--sc-cookie-btn-bg);
+        color: var(--sc-cookie-btn-text);
+      }
+      .sc-cookie-btn-deny {
+        background-color: var(--sc-cookie-btn-deny-bg);
+        color: var(--sc-cookie-text);
+      }
+
+      @media (min-width: 768px) {
+        .sc-cookie-banner {
+          flex-direction: row;
+          justify-content: space-between;
+          padding: 20px 40px;
+        }
+        .sc-cookie-text {
+          text-align: left;
+        }
+      }
+    </style>
+
+    <!-- Cookie Banner HTML -->
+    <div id="sc-cookie-banner" class="sc-cookie-banner sc-hidden">
+      <p class="sc-cookie-text">
+        Wir nutzen Cookies, um unsere Website für Sie optimal zu gestalten und
+        Zugriffe zu analysieren. Weitere Informationen finden Sie in unserer
+        <a
+          href="https://coroyo.de/datenschutz"
+          class="sc-cookie-link"
+          target="_blank"
+          rel="noopener noreferrer"
+          >Datenschutzerklärung</a
+        >.
+      </p>
+      <div class="sc-cookie-buttons">
+        <button
+          id="sc-cookie-btn-deny"
+          class="sc-cookie-btn sc-cookie-btn-deny"
+        >
+          Ablehnen
+        </button>
+        <button
+          id="sc-cookie-btn-accept"
+          class="sc-cookie-btn sc-cookie-btn-accept"
+        >
+          Annehmen
+        </button>
+      </div>
+    </div>
+
+    <!-- Cookie Banner Logic -->
+    <script>
+      // Initialize cookie banner logic
+      document.addEventListener("DOMContentLoaded", function () {
+        const banner = document.getElementById("sc-cookie-banner");
+        const acceptBtn = document.getElementById("sc-cookie-btn-accept");
+        const denyBtn = document.getElementById("sc-cookie-btn-deny");
+
+        // Check if user already made a choice
+        const consent = localStorage.getItem("sc-cookie-consent");
+
+        if (!consent) {
+          banner.classList.remove("sc-hidden");
+        } else if (consent === "accepted") {
+          loadGoogleAnalytics();
+        }
+
+        // Handle accept action
+        acceptBtn.addEventListener("click", function () {
+          localStorage.setItem("sc-cookie-consent", "accepted");
+          banner.classList.add("sc-hidden");
+          loadGoogleAnalytics();
+        });
+
+        // Handle deny action
+        denyBtn.addEventListener("click", function () {
+          localStorage.setItem("sc-cookie-consent", "denied");
+          banner.classList.add("sc-hidden");
+        });
+      });
+    </script>
   </body>
 </html>
