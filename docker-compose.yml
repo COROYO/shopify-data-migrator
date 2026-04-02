@@ -1,9 +1,7 @@
 version: "3.3"
 
-name: migrator.shrymp.de
-
 services:
-  app:
+  migrator_app:
     build:
       context: .
     ports:
